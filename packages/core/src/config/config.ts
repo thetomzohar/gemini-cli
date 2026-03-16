@@ -1,3 +1,4 @@
+import type { LocalContextCompressionService } from '../services/localContextCompressionService.js';
 /**
  * @license
  * Copyright 2026 Google LLC
@@ -597,6 +598,10 @@ export interface ConfigParameters {
   billing?: {
     overageStrategy?: OverageStrategy;
   };
+  localContextCompression?: boolean;
+  localContextCompressionModelUrl?: string;
+  localContextCompressionModelName?: string;
+  compress?: boolean;
 }
 
 export class Config implements McpContext {
@@ -784,6 +789,10 @@ export class Config implements McpContext {
   private readonly billing: {
     overageStrategy: OverageStrategy;
   };
+
+  private readonly localContextCompression: boolean;
+  private readonly localContextCompressionModelUrl: string;
+  private readonly localContextCompressionModelName: string;
 
   private readonly enableAgents: boolean;
   private agents: AgentSettings;
@@ -1036,6 +1045,16 @@ export class Config implements McpContext {
     this.billing = {
       overageStrategy: params.billing?.overageStrategy ?? 'ask',
     };
+
+    this.localContextCompression =
+      params.compress !== undefined
+        ? params.compress
+        : (params.localContextCompression ?? false);
+    this.localContextCompressionModelUrl =
+      params.localContextCompressionModelUrl ??
+      'http://localhost:11434/v1/chat/completions';
+    this.localContextCompressionModelName =
+      params.localContextCompressionModelName ?? 'qwen2.5-coder';
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -2343,6 +2362,36 @@ export class Config implements McpContext {
     | Record<string, SummarizeToolOutputSettings>
     | undefined {
     return this.summarizeToolOutput;
+  }
+
+  async getLocalContextCompression(): Promise<boolean> {
+    return this.localContextCompression;
+  }
+
+  async getLocalContextCompressionModelUrl(): Promise<string> {
+    return this.localContextCompressionModelUrl;
+  }
+
+  async getLocalContextCompressionModelName(): Promise<string> {
+    return this.localContextCompressionModelName;
+  }
+
+  private localContextCompressionService?: LocalContextCompressionService | null;
+  async getLocalContextCompressionService(): Promise<LocalContextCompressionService | undefined> {
+    if (this.localContextCompressionService !== undefined) {
+        return this.localContextCompressionService === null ? undefined : this.localContextCompressionService;
+    }
+
+    const enabled = await this.getLocalContextCompression();
+    if (!enabled) {
+      this.localContextCompressionService = null;
+      return undefined;
+    }
+
+    const { LocalContextCompressionService } = await import('../services/localContextCompressionService.js');
+    this.localContextCompressionService = new LocalContextCompressionService(this);
+    await this.localContextCompressionService.loadState();
+    return this.localContextCompressionService;
   }
 
   getIdeMode(): boolean {
