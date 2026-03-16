@@ -1,3 +1,4 @@
+import type { FileRecord } from '../services/localContextCompressionService.js';
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -29,6 +30,7 @@ export interface LogEntry {
 export interface Checkpoint {
   history: Content[];
   authType?: AuthType;
+  compressionState?: Record<string, FileRecord>;
 }
 
 // This regex matches any character that is NOT a letter (a-z, A-Z),
