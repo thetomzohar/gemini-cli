@@ -980,7 +980,7 @@ const SETTINGS_SCHEMA = {
         category: 'Model',
         requiresRestart: false,
         default: 'http://localhost:11434/v1/chat/completions',
-        description: 'The URL of the local model API for context compression.',
+        description: 'The URL for the local context compression model.',
         showInDialog: true,
       },
       localContextCompressionModelName: {
@@ -989,7 +989,7 @@ const SETTINGS_SCHEMA = {
         category: 'Model',
         requiresRestart: false,
         default: 'qwen2.5-coder',
-        description: 'The name of the local model to use for context compression.',
+        description: 'The name of the local context compression model.',
         showInDialog: true,
       },
     },

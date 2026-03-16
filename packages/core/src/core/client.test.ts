@@ -219,12 +219,6 @@ describe('Gemini Client (client.ts)', () => {
       getDisableLoopDetection: vi.fn().mockReturnValue(false),
 
       getSessionId: vi.fn().mockReturnValue('test-session-id'),
-      setCurrentPrompt: vi.fn(),
-      getCurrentPrompt: vi.fn().mockReturnValue('mock prompt'),
-      getLocalContextCompression: vi.fn().mockResolvedValue(false),
-      getLocalContextCompressionModelUrl: vi.fn().mockResolvedValue('http://localhost:11434'),
-      getLocalContextCompressionModelName: vi.fn().mockResolvedValue('qwen2.5-coder'),
-      getLocalContextCompressionService: vi.fn().mockResolvedValue(null),
       getProxy: vi.fn().mockReturnValue(undefined),
       getWorkingDir: vi.fn().mockReturnValue('/test/dir'),
       getFileService: vi.fn().mockReturnValue(fileService),

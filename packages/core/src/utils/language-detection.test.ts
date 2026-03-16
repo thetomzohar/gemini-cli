@@ -8,39 +8,45 @@ import { describe, it, expect } from 'vitest';
 import { getLanguageFromFilePath } from './language-detection.js';
 
 describe('getLanguageFromFilePath', () => {
-  it('should detect language by standard extension', () => {
+  it('detects language from simple extensions', () => {
     expect(getLanguageFromFilePath('test.ts')).toBe('TypeScript');
-    expect(getLanguageFromFilePath('main.py')).toBe('Python');
-    expect(getLanguageFromFilePath('index.js')).toBe('JavaScript');
+    expect(getLanguageFromFilePath('test.js')).toBe('JavaScript');
+    expect(getLanguageFromFilePath('test.py')).toBe('Python');
+    expect(getLanguageFromFilePath('test.go')).toBe('Go');
   });
 
-  it('should be case insensitive for extensions', () => {
-    expect(getLanguageFromFilePath('FILE.TS')).toBe('TypeScript');
-    expect(getLanguageFromFilePath('Main.Py')).toBe('Python');
+  it('is case-insensitive for extensions', () => {
+    expect(getLanguageFromFilePath('TEST.TS')).toBe('TypeScript');
+    expect(getLanguageFromFilePath('test.JS')).toBe('JavaScript');
   });
 
-  it('should handle multiple dots in filename', () => {
-    expect(getLanguageFromFilePath('test.spec.js')).toBe('JavaScript');
+  it('handles paths with multiple dots', () => {
+    expect(getLanguageFromFilePath('test.spec.ts')).toBe('TypeScript');
     expect(getLanguageFromFilePath('archive.tar.gz')).toBeUndefined();
   });
 
-  it('should return undefined for files with no extension', () => {
-    expect(getLanguageFromFilePath('README')).toBeUndefined();
-    expect(getLanguageFromFilePath('LICENSE')).toBeUndefined();
-  });
-
-  it('should detect language for filenames without extension but in map', () => {
-    // Dockerfile is mapped as '.dockerfile'
+  it('detects language from known filenames without extensions', () => {
     expect(getLanguageFromFilePath('Dockerfile')).toBe('Dockerfile');
+    expect(getLanguageFromFilePath('dockerfile')).toBe('Dockerfile');
   });
 
-  it('should detect language for hidden files (dotfiles) in map', () => {
+  it('detects language from dotfiles', () => {
     expect(getLanguageFromFilePath('.gitignore')).toBe('Git');
+    expect(getLanguageFromFilePath('.prettierrc')).toBe('Prettier');
     expect(getLanguageFromFilePath('.eslintrc')).toBe('ESLint');
   });
 
-  it('should handle full paths correctly', () => {
-    expect(getLanguageFromFilePath('src/utils/language-detection.ts')).toBe('TypeScript');
-    expect(getLanguageFromFilePath('/absolute/path/to/main.py')).toBe('Python');
+  it('returns undefined for unknown extensions', () => {
+    expect(getLanguageFromFilePath('test.unknown')).toBeUndefined();
+  });
+
+  it('returns undefined for files without extensions or known names', () => {
+    expect(getLanguageFromFilePath('README')).toBeUndefined();
+    expect(getLanguageFromFilePath('test')).toBeUndefined();
+  });
+
+  it('handles paths with directories', () => {
+    expect(getLanguageFromFilePath('src/index.ts')).toBe('TypeScript');
+    expect(getLanguageFromFilePath('/usr/local/bin/.gitignore')).toBe('Git');
   });
 });
