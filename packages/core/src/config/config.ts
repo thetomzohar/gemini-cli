@@ -1,3 +1,4 @@
+import type { LocalContextCompressionService } from '../services/localContextCompressionService.js';
 /**
  * @license
  * Copyright 2026 Google LLC
@@ -597,6 +598,10 @@ export interface ConfigParameters {
   billing?: {
     overageStrategy?: OverageStrategy;
   };
+  compress?: boolean;
+  localContextCompression?: boolean;
+  localContextCompressionModelUrl?: string;
+  localContextCompressionModelName?: string;
 }
 
 export class Config implements McpContext {
@@ -626,6 +631,10 @@ export class Config implements McpContext {
   private readonly debugMode: boolean;
   private readonly question: string | undefined;
   readonly enableConseca: boolean;
+  private readonly compress: boolean;
+  private readonly localContextCompression: boolean;
+  private readonly localContextCompressionModelUrl: string;
+  private readonly localContextCompressionModelName: string;
 
   private readonly coreTools: string[] | undefined;
   /** @deprecated Use Policy Engine instead */
@@ -820,6 +829,13 @@ export class Config implements McpContext {
     this.pendingIncludeDirectories = params.includeDirectories ?? [];
     this.debugMode = params.debugMode;
     this.question = params.question;
+    this.compress = params.compress ?? false;
+    this.localContextCompression = params.localContextCompression ?? false;
+    this.localContextCompressionModelUrl =
+      params.localContextCompressionModelUrl ??
+      'http://localhost:11434/v1/chat/completions';
+    this.localContextCompressionModelName =
+      params.localContextCompressionModelName ?? 'qwen2.5-coder';
 
     this.coreTools = params.coreTools;
     this.allowedTools = params.allowedTools;
@@ -2343,6 +2359,44 @@ export class Config implements McpContext {
     | Record<string, SummarizeToolOutputSettings>
     | undefined {
     return this.summarizeToolOutput;
+  }
+
+  private currentPrompt: string = '';
+  setCurrentPrompt(prompt: string) {
+    this.currentPrompt = prompt;
+  }
+  getCurrentPrompt(): string {
+    return this.currentPrompt;
+  }
+
+  async getLocalContextCompression(): Promise<boolean> {
+    return this.compress || this.localContextCompression;
+  }
+
+  async getLocalContextCompressionModelUrl(): Promise<string> {
+    return this.localContextCompressionModelUrl;
+  }
+
+  async getLocalContextCompressionModelName(): Promise<string> {
+    return this.localContextCompressionModelName;
+  }
+
+  private localContextCompressionService?: LocalContextCompressionService | null;
+  async getLocalContextCompressionService(): Promise<LocalContextCompressionService | undefined> {
+    if (this.localContextCompressionService !== undefined) {
+        return this.localContextCompressionService === null ? undefined : this.localContextCompressionService;
+    }
+
+    const enabled = await this.getLocalContextCompression();
+    if (!enabled) {
+      this.localContextCompressionService = null;
+      return undefined;
+    }
+
+    const { LocalContextCompressionService } = await import('../services/localContextCompressionService.js');
+    this.localContextCompressionService = new LocalContextCompressionService(this);
+    await this.localContextCompressionService.loadState();
+    return this.localContextCompressionService;
   }
 
   getIdeMode(): boolean {

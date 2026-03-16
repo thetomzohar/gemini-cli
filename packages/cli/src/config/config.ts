@@ -70,6 +70,7 @@ export interface CliArgs {
   debug: boolean | undefined;
   prompt: string | undefined;
   promptInteractive: string | undefined;
+  compress: boolean | undefined;
 
   yolo: boolean | undefined;
   approvalMode: string | undefined;
@@ -123,6 +124,12 @@ export async function parseArguments(
           type: 'string',
           nargs: 1,
           description: `Model`,
+        })
+        .option('compress', {
+          alias: 'c',
+          type: 'boolean',
+          description: 'Enable local model context compression for files',
+          default: false,
         })
         .option('prompt', {
           alias: 'p',
@@ -702,6 +709,12 @@ export async function loadCliConfig(
     targetDir: cwd,
     includeDirectoryTree,
     includeDirectories,
+    compress: argv.compress,
+    localContextCompression: settings.model?.localContextCompression,
+    localContextCompressionModelUrl:
+      settings.model?.localContextCompressionModelUrl,
+    localContextCompressionModelName:
+      settings.model?.localContextCompressionModelName,
     loadMemoryFromIncludeDirectories:
       settings.context?.loadMemoryFromIncludeDirectories || false,
     debugMode,
