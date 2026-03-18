@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { LocalContextCompressionService } from '../services/localContextCompressionService.js';
+import type { ContextCompressionService } from '../services/contextCompressionService.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -2367,7 +2367,7 @@ export class Config implements McpContext {
     return this.currentPrompt;
   }
 
-  async getLocalContextCompression(): Promise<boolean> {
+  async isContextCompressionEnabled(): Promise<boolean> {
     return this.compressCloud || this.compressLocal;
   }
 
@@ -2385,22 +2385,22 @@ export class Config implements McpContext {
     return this.localContextCompressionModelName;
   }
 
-  private localContextCompressionService?: LocalContextCompressionService | null;
-  async getLocalContextCompressionService(): Promise<LocalContextCompressionService | undefined> {
-    if (this.localContextCompressionService !== undefined) {
-        return this.localContextCompressionService === null ? undefined : this.localContextCompressionService;
+  private contextCompressionService?: ContextCompressionService | null;
+  async getContextCompressionService(): Promise<ContextCompressionService | undefined> {
+    if (this.contextCompressionService !== undefined) {
+        return this.contextCompressionService === null ? undefined : this.contextCompressionService;
     }
 
-    const enabled = await this.getLocalContextCompression();
+    const enabled = await this.isContextCompressionEnabled();
     if (!enabled) {
-      this.localContextCompressionService = null;
+      this.contextCompressionService = null;
       return undefined;
     }
 
-    const { LocalContextCompressionService } = await import('../services/localContextCompressionService.js');
-    this.localContextCompressionService = new LocalContextCompressionService(this);
-    await this.localContextCompressionService.loadState();
-    return this.localContextCompressionService;
+    const { ContextCompressionService } = await import('../services/contextCompressionService.js');
+    this.contextCompressionService = new ContextCompressionService(this);
+    await this.contextCompressionService.loadState();
+    return this.contextCompressionService;
   }
 
   getIdeMode(): boolean {

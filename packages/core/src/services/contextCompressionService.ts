@@ -22,7 +22,7 @@ export interface FileRecord {
   contentHash?: string;
 }
 
-export class LocalContextCompressionService {
+export class ContextCompressionService {
   private config: Config;
   private state: Map<string, FileRecord> = new Map();
   private stateFilePath: string;
@@ -75,7 +75,7 @@ export class LocalContextCompressionService {
   }
 
   async compressHistory(history: Content[], userPrompt: string, abortSignal?: AbortSignal): Promise<Content[]> {
-    const enabled = await this.config.getLocalContextCompression();
+    const enabled = await this.config.isContextCompressionEnabled();
     if (!enabled) return history;
 
     const RECENT_TURNS_PROTECTED = 2;

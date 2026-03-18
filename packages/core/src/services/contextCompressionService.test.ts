@@ -5,7 +5,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LocalContextCompressionService } from './localContextCompressionService.js';
+import { ContextCompressionService } from './contextCompressionService.js';
 import type { Config } from '../config/config.js';
 import type { Content } from '@google/genai';
 import * as fsSync from 'node:fs';
@@ -19,9 +19,9 @@ vi.mock('node:fs', () => ({
   existsSync: vi.fn(),
 }));
 
-describe('LocalContextCompressionService', () => {
+describe('ContextCompressionService', () => {
   let mockConfig: Partial<Config>;
-  let service: LocalContextCompressionService;
+  let service: ContextCompressionService;
   let originalFetch: typeof globalThis.fetch;
   let mockFetch: any;
 
@@ -30,7 +30,7 @@ describe('LocalContextCompressionService', () => {
       storage: {
         getProjectTempDir: vi.fn().mockReturnValue('/mock/temp/dir'),
       } as any,
-      getLocalContextCompression: vi.fn().mockResolvedValue(true),
+      isContextCompressionEnabled: vi.fn().mockResolvedValue(true),
       getLocalContextCompressionModelUrl: vi.fn().mockResolvedValue('http://mock'),
       getLocalContextCompressionModelName: vi.fn().mockResolvedValue('mock-model'),
       getCurrentPrompt: vi.fn().mockReturnValue('mock prompt'),
@@ -43,7 +43,7 @@ describe('LocalContextCompressionService', () => {
 
     vi.mocked(fsSync.existsSync).mockReturnValue(false);
 
-    service = new LocalContextCompressionService(mockConfig as Config);
+    service = new ContextCompressionService(mockConfig as Config);
   });
 
   afterEach(() => {
@@ -53,7 +53,7 @@ describe('LocalContextCompressionService', () => {
 
   describe('compressHistory', () => {
     it('bypasses compression if feature flag is false', async () => {
-      mockConfig.getLocalContextCompression = vi.fn().mockResolvedValue(false);
+      mockConfig.isContextCompressionEnabled = vi.fn().mockResolvedValue(false);
       const history: Content[] = [{ role: 'user', parts: [{ text: 'hello' }] }];
 
       const res = await service.compressHistory(history, 'test prompt');

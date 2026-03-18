@@ -597,7 +597,7 @@ export class GeminiClient {
     const lastTurn = this.getHistory().at(-1);
     const historyIsStable = !lastTurn?.parts?.some((p) => p.functionCall);
 
-    const compressionService = await this.config.getLocalContextCompressionService();
+    const compressionService = await this.config.getContextCompressionService();
     if (compressionService && historyIsStable) {
       const compressedHistory = await compressionService.compressHistory(this.getHistory(), this.config.getCurrentPrompt(), signal);
       this.setHistory(compressedHistory);
