@@ -570,6 +570,7 @@ export class GeminiClient {
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
     // Re-initialize turn (it was empty before if in loop, or new instance)
     let turn = new Turn(this.getChat(), prompt_id);
+    this.config.setCurrentPrompt(partListUnionToString(request));
 
     this.sessionTurnCount++;
     if (
@@ -591,6 +592,15 @@ export class GeminiClient {
 
     if (compressed.compressionStatus === CompressionStatus.COMPRESSED) {
       yield { type: GeminiEventType.ChatCompressed, value: compressed };
+    }
+
+    const lastTurn = this.getHistory().at(-1);
+    const historyIsStable = !lastTurn?.parts?.some((p) => p.functionCall);
+
+    const compressionService = await this.config.getLocalContextCompressionService();
+    if (compressionService && historyIsStable) {
+      const compressedHistory = await compressionService.compressHistory(this.getHistory(), this.config.getCurrentPrompt());
+      this.setHistory(compressedHistory);
     }
 
     const remainingTokenCount =
