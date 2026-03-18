@@ -74,7 +74,7 @@ export class LocalContextCompressionService {
     }
   }
 
-  async compressHistory(history: Content[], userPrompt: string): Promise<Content[]> {
+  async compressHistory(history: Content[], userPrompt: string, abortSignal?: AbortSignal): Promise<Content[]> {
     const enabled = await this.config.getLocalContextCompression();
     if (!enabled) return history;
 
@@ -113,7 +113,7 @@ export class LocalContextCompressionService {
       }
 
       const newParts = await Promise.all(
-        turn.parts.map((part: Part) => this.maybeCompressPart(part, protectedFiles, userPrompt))
+        turn.parts.map((part: Part) => this.maybeCompressPart(part, protectedFiles, userPrompt, abortSignal))
       );
       result.push({ ...turn, parts: newParts });
     }
@@ -157,7 +157,7 @@ export class LocalContextCompressionService {
     return result;
   }
 
-  private async maybeCompressPart(part: any, protectedFiles: Set<string>, userPrompt: string): Promise<any> {
+  private async maybeCompressPart(part: any, protectedFiles: Set<string>, userPrompt: string, abortSignal?: AbortSignal): Promise<any> {
     const resp = part.functionResponse;
     if (!resp) return part;
     if (resp.name !== 'read_file' && resp.name !== 'read_many_files') return part;
@@ -188,7 +188,7 @@ export class LocalContextCompressionService {
       return part; // Skip compression for protected files
     }
 
-    const compressed = await this.compressFileContent(filepath, output, userPrompt);
+    const compressed = await this.compressFileContent(filepath, output, userPrompt, abortSignal);
     if (compressed === output) return part; // nothing changed
 
     return {
@@ -203,6 +203,7 @@ export class LocalContextCompressionService {
     filepath: string,
     rawContent: string,
     userPrompt: string,
+    abortSignal?: AbortSignal,
   ): Promise<string> {
     const hash = crypto.createHash('sha256').update(rawContent).digest('hex').slice(0, 12);
     const record: FileRecord = this.state.get(filepath) ?? {
@@ -226,7 +227,7 @@ export class LocalContextCompressionService {
     const lines = contentToProcess.split('\n');
     const preview = lines.slice(0, 30).join('\n');
 
-    const decision = await this.queryLocalModel(filepath, lines.length, preview, userPrompt);
+    const decision = await this.queryLocalModel(filepath, lines.length, preview, userPrompt, abortSignal);
     record.level = decision.level;
     this.state.set(filepath, record);
     await this.saveState();
@@ -250,7 +251,7 @@ export class LocalContextCompressionService {
 
     if (decision.level === 'SUMMARY') {
       if (!record.cachedSummary) {
-        record.cachedSummary = await this.generateSummary(filepath, contentToProcess);
+        record.cachedSummary = await this.generateSummary(filepath, contentToProcess, abortSignal);
         this.state.set(filepath, record);
         await this.saveState();
       }
@@ -274,6 +275,7 @@ export class LocalContextCompressionService {
     lineCount: number,
     preview: string,
     userPrompt: string,
+    abortSignal?: AbortSignal,
   ): Promise<{ level: FileLevel; startLine?: number; endLine?: number }> {
     const systemPrompt = `You are a context routing agent for a coding AI session.
 Decide what level of file content to send to the main model.
@@ -307,7 +309,7 @@ ${preview}`;
           },
           promptId: 'local-context-compression-query',
           role: LlmRole.UTILITY_COMPRESSOR,
-          abortSignal: new AbortController().signal,
+          abortSignal: abortSignal ?? new AbortController().signal,
         });
         return {
           level: (responseJson['level'] as any) || 'FULL',
@@ -329,6 +331,7 @@ ${preview}`;
       const resp = await fetchFn(modelUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortSignal ?? new AbortController().signal,
         body: JSON.stringify({
           model: modelName,
           messages: [
@@ -353,7 +356,7 @@ ${preview}`;
     }
   }
 
-  private async generateSummary(filepath: string, content: string): Promise<string> {
+  private async generateSummary(filepath: string, content: string, abortSignal?: AbortSignal): Promise<string> {
     const promptMessage = `Summarize this file in 2-3 sentences. Be technical and specific about what it exports, its key functions, and dependencies. File: ${filepath}\n\n${content.slice(0, 4000)}`;
 
     if (this.config.getCompressionMode() === 'cloud') {
@@ -364,7 +367,7 @@ ${preview}`;
           contents: [{ role: 'user', parts: [{ text: promptMessage }] }],
           promptId: 'local-context-compression-summary',
           role: LlmRole.UTILITY_COMPRESSOR,
-          abortSignal: new AbortController().signal,
+          abortSignal: abortSignal ?? new AbortController().signal,
         });
         const text = getResponseText(response) ?? '';
         return text.trim();
@@ -381,6 +384,7 @@ ${preview}`;
       const resp = await fetchFn(modelUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortSignal ?? new AbortController().signal,
         body: JSON.stringify({
           model: modelName,
           messages: [{

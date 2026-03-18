@@ -277,6 +277,9 @@ describe('Gemini Client (client.ts)', () => {
         .mockReturnValue(createAvailabilityServiceMock()),
     } as unknown as Config;
     mockConfig.getHookSystem = vi.fn().mockReturnValue(mockHookSystem);
+    mockConfig.setCurrentPrompt = vi.fn();
+    mockConfig.getCurrentPrompt = vi.fn().mockReturnValue('mock prompt');
+    mockConfig.getLocalContextCompressionService = vi.fn().mockResolvedValue(null);
 
     client = new GeminiClient(mockConfig);
     await client.initialize();

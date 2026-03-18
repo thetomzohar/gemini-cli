@@ -3,7 +3,7 @@
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-type-assertion */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LocalContextCompressionService } from './localContextCompressionService.js';
 import type { Config } from '../config/config.js';
@@ -34,6 +34,7 @@ describe('LocalContextCompressionService', () => {
       getLocalContextCompressionModelUrl: vi.fn().mockResolvedValue('http://mock'),
       getLocalContextCompressionModelName: vi.fn().mockResolvedValue('mock-model'),
       getCurrentPrompt: vi.fn().mockReturnValue('mock prompt'),
+      getCompressionMode: vi.fn().mockReturnValue('local'),
     };
 
     originalFetch = globalThis.fetch;
