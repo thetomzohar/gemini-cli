@@ -1,15 +1,10 @@
 /**
  * @license
- * Copyright 2026 Google LLC
- * SPDX-License-Identifier: Apache-2.0
- */
-import type { FileRecord } from '../services/contextCompressionService.js';
-/**
- * @license
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { FileRecord } from '../services/contextCompressionService.js';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import type { Content } from '@google/genai';
