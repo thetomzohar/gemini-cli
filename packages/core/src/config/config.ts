@@ -829,9 +829,15 @@ export class Config implements McpContext {
     this.workspaceContext = new WorkspaceContext(this.targetDir, []);
     this.pendingIncludeDirectories = params.includeDirectories ?? [];
     this.compressCloud = params.compressCloud ?? false;
-    this.compressLocal = params.compressLocal !== undefined ? params.compressLocal : (params.localContextCompression ?? false);
-    this.localContextCompressionModelUrl = params.localContextCompressionModelUrl ?? 'http://localhost:11434/v1/chat/completions';
-    this.localContextCompressionModelName = params.localContextCompressionModelName ?? 'qwen2.5-coder';
+    this.compressLocal =
+      params.compressLocal !== undefined
+        ? params.compressLocal
+        : (params.localContextCompression ?? false);
+    this.localContextCompressionModelUrl =
+      params.localContextCompressionModelUrl ??
+      'http://localhost:11434/v1/chat/completions';
+    this.localContextCompressionModelName =
+      params.localContextCompressionModelName ?? 'qwen2.5-coder';
     this.debugMode = params.debugMode;
     this.question = params.question;
 
@@ -2386,9 +2392,13 @@ export class Config implements McpContext {
   }
 
   private contextCompressionService?: ContextCompressionService | null;
-  async getContextCompressionService(): Promise<ContextCompressionService | undefined> {
+  async getContextCompressionService(): Promise<
+    ContextCompressionService | undefined
+  > {
     if (this.contextCompressionService !== undefined) {
-        return this.contextCompressionService === null ? undefined : this.contextCompressionService;
+      return this.contextCompressionService === null
+        ? undefined
+        : this.contextCompressionService;
     }
 
     const enabled = await this.isContextCompressionEnabled();
@@ -2397,7 +2407,9 @@ export class Config implements McpContext {
       return undefined;
     }
 
-    const { ContextCompressionService } = await import('../services/contextCompressionService.js');
+    const { ContextCompressionService } = await import(
+      '../services/contextCompressionService.js'
+    );
     this.contextCompressionService = new ContextCompressionService(this);
     await this.contextCompressionService.loadState();
     return this.contextCompressionService;

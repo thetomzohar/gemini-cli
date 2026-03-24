@@ -570,7 +570,6 @@ export class GeminiClient {
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
     // Re-initialize turn (it was empty before if in loop, or new instance)
     let turn = new Turn(this.getChat(), prompt_id);
-    this.config.setCurrentPrompt(partListUnionToString(request));
 
     this.sessionTurnCount++;
     if (
@@ -594,12 +593,13 @@ export class GeminiClient {
       yield { type: GeminiEventType.ChatCompressed, value: compressed };
     }
 
-    const lastTurn = this.getHistory().at(-1);
-    const historyIsStable = !lastTurn?.parts?.some((p) => p.functionCall);
-
     const compressionService = await this.config.getContextCompressionService();
-    if (compressionService && historyIsStable) {
-      const compressedHistory = await compressionService.compressHistory(this.getHistory(), this.config.getCurrentPrompt(), signal);
+    if (compressionService) {
+      const compressedHistory = await compressionService.compressHistory(
+        this.getHistory(),
+        this.config.getCurrentPrompt(),
+        signal,
+      );
       this.setHistory(compressedHistory);
     }
 
@@ -874,6 +874,7 @@ export class GeminiClient {
       this.hookStateMap.delete(this.lastPromptId);
       this.lastPromptId = prompt_id;
       this.currentSequenceModel = null;
+      this.config.setCurrentPrompt(partListUnionToString(request));
     }
 
     if (hooksEnabled && messageBus) {
