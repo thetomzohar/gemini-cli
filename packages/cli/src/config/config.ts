@@ -709,12 +709,9 @@ export async function loadCliConfig(
     acpMode: !!argv.acp || !!argv.experimentalAcp,
     compressCloud: argv.compress,
     compressLocal: argv.localCompress,
-     
     localContextCompression: settings.model?.localContextCompression,
-     
     localContextCompressionModelUrl:
       settings.model?.localContextCompressionModelUrl,
-     
     localContextCompressionModelName:
       settings.model?.localContextCompressionModelName,
     sessionId,

@@ -135,7 +135,11 @@ const saveCommand: SlashCommand = {
     const history = chat.getHistory();
     if (history.length > INITIAL_HISTORY_LENGTH) {
       const authType = config?.getContentGeneratorConfig()?.authType;
-      await logger.saveCheckpoint({ history, authType }, tag);
+      const compressionService = await config?.getContextCompressionService();
+      const compressionState = compressionService
+        ? compressionService.getState()
+        : undefined;
+      await logger.saveCheckpoint({ history, authType, compressionState }, tag);
       return {
         type: 'message',
         messageType: 'info',
@@ -174,6 +178,11 @@ const resumeCommand: SlashCommand = {
     await logger.initialize();
     const checkpoint = await logger.loadCheckpoint(tag);
     const conversation = checkpoint.history;
+
+    const compressionService = await config?.getContextCompressionService();
+    if (compressionService && checkpoint.compressionState) {
+      compressionService.setState(checkpoint.compressionState);
+    }
 
     if (conversation.length === 0) {
       return {
