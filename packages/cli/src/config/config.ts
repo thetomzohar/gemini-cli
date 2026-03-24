@@ -133,7 +133,8 @@ export async function parseArguments(
         })
         .option('local-compress', {
           type: 'boolean',
-          description: 'Enable local model context compression for files via local endpoints',
+          description:
+            'Enable local model context compression for files via local endpoints',
         })
         .option('prompt', {
           alias: 'p',
@@ -708,12 +709,14 @@ export async function loadCliConfig(
     acpMode: !!argv.acp || !!argv.experimentalAcp,
     compressCloud: argv.compress,
     compressLocal: argv.localCompress,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+     
     localContextCompression: settings.model?.localContextCompression,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    localContextCompressionModelUrl: settings.model?.localContextCompressionModelUrl,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    localContextCompressionModelName: settings.model?.localContextCompressionModelName,
+     
+    localContextCompressionModelUrl:
+      settings.model?.localContextCompressionModelUrl,
+     
+    localContextCompressionModelName:
+      settings.model?.localContextCompressionModelName,
     sessionId,
     clientVersion: await getVersion(),
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
