@@ -946,6 +946,15 @@ const SETTINGS_SCHEMA = {
         showInDialog: true,
         unit: '%',
       },
+      compressCloud: {
+        type: 'boolean',
+        label: 'Cloud Context Compression',
+        category: 'Model',
+        requiresRestart: false,
+        default: false,
+        description: 'Enable cloud model context compression for files.',
+        showInDialog: true,
+      },
       localContextCompression: {
         type: 'boolean',
         label: 'Local Context Compression',

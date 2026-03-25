@@ -707,7 +707,10 @@ export async function loadCliConfig(
 
   return new Config({
     acpMode: !!argv.acp || !!argv.experimentalAcp,
-    compressCloud: argv.compress,
+    compressCloud:
+      argv.compress !== undefined
+        ? argv.compress
+        : settings.model?.compressCloud,
     compressLocal: argv.localCompress,
     localContextCompression: settings.model?.localContextCompression,
     localContextCompressionModelUrl:
