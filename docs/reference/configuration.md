@@ -397,8 +397,14 @@ their corresponding top-level category object in your `settings.json` file.
 - **`model.compressionThreshold`** (number):
   - **Description:** The fraction of context usage at which to trigger context
     compression (e.g. 0.2, 0.3).
-  - **Default:** `0.1`
+  - **Default:** `0.5`
   - **Requires restart:** Yes
+
+- **`model.contextCompressionTokenThreshold`** (number):
+  - **Description:** Fraction of the model token limit at which context
+    compression activates (0.0–1.0). Default 0.1 means compression runs only
+    when history exceeds 10% of the context window.
+  - **Default:** `0.1`
 
 - **`model.compressCloud`** (boolean):
   - **Description:** Enable cloud model context compression for files.

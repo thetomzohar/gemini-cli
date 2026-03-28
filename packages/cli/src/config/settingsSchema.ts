@@ -940,11 +940,21 @@ const SETTINGS_SCHEMA = {
         label: 'Context Compression Threshold',
         category: 'Model',
         requiresRestart: true,
-        default: 0.1 as number,
+        default: 0.5 as number,
         description:
           'The fraction of context usage at which to trigger context compression (e.g. 0.2, 0.3).',
         showInDialog: true,
         unit: '%',
+      },
+      contextCompressionTokenThreshold: {
+        type: 'number',
+        label: 'Context Compression Token Threshold',
+        category: 'Model',
+        requiresRestart: false,
+        default: 0.1 as number,
+        description:
+          'Fraction of the model token limit at which context compression activates (0.0–1.0). Default 0.1 means compression runs only when history exceeds 10% of the context window.',
+        showInDialog: true,
       },
       compressCloud: {
         type: 'boolean',

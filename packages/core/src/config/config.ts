@@ -542,6 +542,7 @@ export interface ConfigParameters {
   importFormat?: 'tree' | 'flat';
   discoveryMaxDirs?: number;
   compressionThreshold?: number;
+  contextCompressionTokenThreshold?: number;
   interactive?: boolean;
   trustedFolder?: boolean;
   useBackgroundColor?: boolean;
@@ -730,6 +731,7 @@ export class Config implements McpContext {
   private readonly importFormat: 'tree' | 'flat';
   private readonly discoveryMaxDirs: number;
   private readonly compressionThreshold: number | undefined;
+  private readonly contextCompressionTokenThreshold: number | undefined;
   /** Public for testing only */
   readonly interactive: boolean;
   private readonly ptyInfo: string;
@@ -948,6 +950,7 @@ export class Config implements McpContext {
     this.importFormat = params.importFormat ?? 'tree';
     this.discoveryMaxDirs = params.discoveryMaxDirs ?? 200;
     this.compressionThreshold = params.compressionThreshold;
+    this.contextCompressionTokenThreshold = params.contextCompressionTokenThreshold;
     this.interactive = params.interactive ?? false;
     this.ptyInfo = params.ptyInfo ?? 'child_process';
     this.trustedFolder = params.trustedFolder;
@@ -2516,6 +2519,10 @@ export class Config implements McpContext {
    */
   setFileSystemService(fileSystemService: FileSystemService): void {
     this.fileSystemService = fileSystemService;
+  }
+
+  getContextCompressionTokenThreshold(): number {
+    return this.contextCompressionTokenThreshold ?? 0.1;
   }
 
   async getCompressionThreshold(): Promise<number | undefined> {

@@ -588,7 +588,14 @@
         "compressionThreshold": {
           "title": "Context Compression Threshold",
           "description": "The fraction of context usage at which to trigger context compression (e.g. 0.2, 0.3).",
-          "markdownDescription": "The fraction of context usage at which to trigger context compression (e.g. 0.2, 0.3).\n\n- Category: `Model`\n- Requires restart: `yes`\n- Default: `0.1`",
+          "markdownDescription": "The fraction of context usage at which to trigger context compression (e.g. 0.2, 0.3).\n\n- Category: `Model`\n- Requires restart: `yes`\n- Default: `0.5`",
+          "default": 0.5,
+          "type": "number"
+        },
+        "contextCompressionTokenThreshold": {
+          "title": "Context Compression Token Threshold",
+          "description": "Fraction of the model token limit at which context compression activates (0.0–1.0). Default 0.1 means compression runs only when history exceeds 10% of the context window.",
+          "markdownDescription": "Fraction of the model token limit at which context compression activates (0.0–1.0). Default 0.1 means compression runs only when history exceeds 10% of the context window.\n\n- Category: `Model`\n- Requires restart: `no`\n- Default: `0.1`",
           "default": 0.1,
           "type": "number"
         },
