@@ -599,7 +599,7 @@ export class GeminiClient {
       const lastTurn = this.getHistory().at(-1);
       const historyIsStable = !lastTurn?.parts?.some((p) => p.functionCall);
 
-      const threshold = (await this.config.getCompressionThreshold()) ?? 0.3;
+      const threshold = (await this.config.getCompressionThreshold()) ?? 0.1;
       const limit = tokenLimit(modelForLimitCheck);
       const currentTokens = this.getChat().getLastPromptTokenCount();
 
