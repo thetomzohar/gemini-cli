@@ -592,6 +592,41 @@
           "default": 0.5,
           "type": "number"
         },
+        "contextCompressionTokenThreshold": {
+          "title": "Context Compression Token Threshold",
+          "description": "Fraction of the model token limit at which context compression activates (0.0–1.0). Default 0.1 means compression runs only when history exceeds 10% of the context window.",
+          "markdownDescription": "Fraction of the model token limit at which context compression activates (0.0–1.0). Default 0.1 means compression runs only when history exceeds 10% of the context window.\n\n- Category: `Model`\n- Requires restart: `no`\n- Default: `0.1`",
+          "default": 0.1,
+          "type": "number"
+        },
+        "compressCloud": {
+          "title": "Cloud Context Compression",
+          "description": "Enable cloud model context compression for files.",
+          "markdownDescription": "Enable cloud model context compression for files.\n\n- Category: `Model`\n- Requires restart: `no`\n- Default: `false`",
+          "default": false,
+          "type": "boolean"
+        },
+        "localContextCompression": {
+          "title": "Local Context Compression",
+          "description": "Enable local model context compression for files.",
+          "markdownDescription": "Enable local model context compression for files.\n\n- Category: `Model`\n- Requires restart: `no`\n- Default: `false`",
+          "default": false,
+          "type": "boolean"
+        },
+        "localContextCompressionModelUrl": {
+          "title": "Local Context Compression Model URL",
+          "description": "The URL for the local context compression model.",
+          "markdownDescription": "The URL for the local context compression model.\n\n- Category: `Model`\n- Requires restart: `no`\n- Default: `http://localhost:11434/v1/chat/completions`",
+          "default": "http://localhost:11434/v1/chat/completions",
+          "type": "string"
+        },
+        "localContextCompressionModelName": {
+          "title": "Local Context Compression Model Name",
+          "description": "The name of the local context compression model.",
+          "markdownDescription": "The name of the local context compression model.\n\n- Category: `Model`\n- Requires restart: `no`\n- Default: `qwen2.5-coder`",
+          "default": "qwen2.5-coder",
+          "type": "string"
+        },
         "disableLoopDetection": {
           "title": "Disable Loop Detection",
           "description": "Disable automatic detection and prevention of infinite loops.",

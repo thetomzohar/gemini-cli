@@ -1972,6 +1972,40 @@ describe('loadCliConfig compressionThreshold', () => {
   });
 });
 
+describe('loadCliConfig compressCloud', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(os.homedir).mockReturnValue('/mock/home/user');
+    vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
+    vi.spyOn(ExtensionManager.prototype, 'getExtensions').mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('should pass compressCloud setting to the core config', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings({
+      model: {
+        compressCloud: true,
+      },
+    });
+    const config = await loadCliConfig(settings, 'test-session', argv);
+    expect(await config.isContextCompressionEnabled()).toBe(true);
+  });
+
+  it('should have false compressCloud if not in settings', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const settings = createTestMergedSettings();
+    const config = await loadCliConfig(settings, 'test-session', argv);
+    expect(await config.isContextCompressionEnabled()).toBe(false);
+  });
+});
+
 describe('loadCliConfig useRipgrep', () => {
   beforeEach(() => {
     vi.resetAllMocks();

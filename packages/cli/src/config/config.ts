@@ -70,6 +70,8 @@ export interface CliArgs {
   debug: boolean | undefined;
   prompt: string | undefined;
   promptInteractive: string | undefined;
+  compress?: boolean | undefined;
+  localCompress?: boolean | undefined;
 
   yolo: boolean | undefined;
   approvalMode: string | undefined;
@@ -123,6 +125,16 @@ export async function parseArguments(
           type: 'string',
           nargs: 1,
           description: `Model`,
+        })
+        .option('compress', {
+          alias: 'c',
+          type: 'boolean',
+          description: 'Enable cloud model context compression for files',
+        })
+        .option('local-compress', {
+          type: 'boolean',
+          description:
+            'Enable local model context compression for files via local endpoints',
         })
         .option('prompt', {
           alias: 'p',
@@ -695,6 +707,16 @@ export async function loadCliConfig(
 
   return new Config({
     acpMode: !!argv.acp || !!argv.experimentalAcp,
+    compressCloud:
+      argv.compress !== undefined
+        ? argv.compress
+        : settings.model?.compressCloud,
+    compressLocal: argv.localCompress,
+    localContextCompression: settings.model?.localContextCompression,
+    localContextCompressionModelUrl:
+      settings.model?.localContextCompressionModelUrl,
+    localContextCompressionModelName:
+      settings.model?.localContextCompressionModelName,
     sessionId,
     clientVersion: await getVersion(),
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -783,6 +805,8 @@ export async function loadCliConfig(
     ideMode,
     disableLoopDetection: settings.model?.disableLoopDetection,
     compressionThreshold: settings.model?.compressionThreshold,
+    contextCompressionTokenThreshold:
+      settings.model?.contextCompressionTokenThreshold,
     folderTrust,
     interactive,
     trustedFolder,

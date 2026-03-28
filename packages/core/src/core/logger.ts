@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { FileRecord } from '../services/contextCompressionService.js';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import type { Content } from '@google/genai';
@@ -29,6 +30,7 @@ export interface LogEntry {
 export interface Checkpoint {
   history: Content[];
   authType?: AuthType;
+  compressionState?: Record<string, FileRecord>;
 }
 
 // This regex matches any character that is NOT a letter (a-z, A-Z),

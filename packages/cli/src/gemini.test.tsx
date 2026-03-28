@@ -475,6 +475,8 @@ describe('gemini.tsx main function kitty protocol', () => {
       model: undefined,
       sandbox: undefined,
       debug: undefined,
+      compress: undefined,
+      localCompress: undefined,
       prompt: undefined,
       promptInteractive: undefined,
       query: undefined,

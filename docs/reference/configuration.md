@@ -400,6 +400,28 @@ their corresponding top-level category object in your `settings.json` file.
   - **Default:** `0.5`
   - **Requires restart:** Yes
 
+- **`model.contextCompressionTokenThreshold`** (number):
+  - **Description:** Fraction of the model token limit at which context
+    compression activates (0.0–1.0). Default 0.1 means compression runs only
+    when history exceeds 10% of the context window.
+  - **Default:** `0.1`
+
+- **`model.compressCloud`** (boolean):
+  - **Description:** Enable cloud model context compression for files.
+  - **Default:** `false`
+
+- **`model.localContextCompression`** (boolean):
+  - **Description:** Enable local model context compression for files.
+  - **Default:** `false`
+
+- **`model.localContextCompressionModelUrl`** (string):
+  - **Description:** The URL for the local context compression model.
+  - **Default:** `"http://localhost:11434/v1/chat/completions"`
+
+- **`model.localContextCompressionModelName`** (string):
+  - **Description:** The name of the local context compression model.
+  - **Default:** `"qwen2.5-coder"`
+
 - **`model.disableLoopDetection`** (boolean):
   - **Description:** Disable automatic detection and prevention of infinite
     loops.

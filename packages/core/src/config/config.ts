@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { ContextCompressionService } from '../services/contextCompressionService.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -529,6 +530,11 @@ export interface ConfigParameters {
   enableEnvironmentVariableRedaction?: boolean;
   noBrowser?: boolean;
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
+  compressCloud?: boolean;
+  compressLocal?: boolean;
+  localContextCompression?: boolean;
+  localContextCompressionModelUrl?: string;
+  localContextCompressionModelName?: string;
   folderTrust?: boolean;
   ideMode?: boolean;
   loadMemoryFromIncludeDirectories?: boolean;
@@ -536,6 +542,7 @@ export interface ConfigParameters {
   importFormat?: 'tree' | 'flat';
   discoveryMaxDirs?: number;
   compressionThreshold?: number;
+  contextCompressionTokenThreshold?: number;
   interactive?: boolean;
   trustedFolder?: boolean;
   useBackgroundColor?: boolean;
@@ -714,12 +721,17 @@ export class Config implements McpContext {
   private readonly summarizeToolOutput:
     | Record<string, SummarizeToolOutputSettings>
     | undefined;
+  private readonly compressCloud: boolean;
+  private readonly compressLocal: boolean;
+  private readonly localContextCompressionModelUrl: string;
+  private readonly localContextCompressionModelName: string;
   private readonly acpMode: boolean = false;
   private readonly loadMemoryFromIncludeDirectories: boolean = false;
   private readonly includeDirectoryTree: boolean = true;
   private readonly importFormat: 'tree' | 'flat';
   private readonly discoveryMaxDirs: number;
   private readonly compressionThreshold: number | undefined;
+  private readonly contextCompressionTokenThreshold: number | undefined;
   /** Public for testing only */
   readonly interactive: boolean;
   private readonly ptyInfo: string;
@@ -818,6 +830,16 @@ export class Config implements McpContext {
     this.folderTrust = params.folderTrust ?? false;
     this.workspaceContext = new WorkspaceContext(this.targetDir, []);
     this.pendingIncludeDirectories = params.includeDirectories ?? [];
+    this.compressCloud = params.compressCloud ?? false;
+    this.compressLocal =
+      params.compressLocal !== undefined
+        ? params.compressLocal
+        : (params.localContextCompression ?? false);
+    this.localContextCompressionModelUrl =
+      params.localContextCompressionModelUrl ??
+      'http://localhost:11434/v1/chat/completions';
+    this.localContextCompressionModelName =
+      params.localContextCompressionModelName ?? 'qwen2.5-coder';
     this.debugMode = params.debugMode;
     this.question = params.question;
 
@@ -928,6 +950,7 @@ export class Config implements McpContext {
     this.importFormat = params.importFormat ?? 'tree';
     this.discoveryMaxDirs = params.discoveryMaxDirs ?? 200;
     this.compressionThreshold = params.compressionThreshold;
+    this.contextCompressionTokenThreshold = params.contextCompressionTokenThreshold;
     this.interactive = params.interactive ?? false;
     this.ptyInfo = params.ptyInfo ?? 'child_process';
     this.trustedFolder = params.trustedFolder;
@@ -2345,6 +2368,56 @@ export class Config implements McpContext {
     return this.summarizeToolOutput;
   }
 
+  private currentPrompt: string = '';
+  setCurrentPrompt(prompt: string) {
+    this.currentPrompt = prompt;
+  }
+  getCurrentPrompt(): string {
+    return this.currentPrompt;
+  }
+
+  async isContextCompressionEnabled(): Promise<boolean> {
+    return this.compressCloud || this.compressLocal;
+  }
+
+  getCompressionMode(): 'cloud' | 'local' | 'none' {
+    if (this.compressCloud) return 'cloud';
+    if (this.compressLocal) return 'local';
+    return 'none';
+  }
+
+  async getLocalContextCompressionModelUrl(): Promise<string> {
+    return this.localContextCompressionModelUrl;
+  }
+
+  async getLocalContextCompressionModelName(): Promise<string> {
+    return this.localContextCompressionModelName;
+  }
+
+  private contextCompressionService?: ContextCompressionService | null;
+  async getContextCompressionService(): Promise<
+    ContextCompressionService | undefined
+  > {
+    if (this.contextCompressionService !== undefined) {
+      return this.contextCompressionService === null
+        ? undefined
+        : this.contextCompressionService;
+    }
+
+    const enabled = await this.isContextCompressionEnabled();
+    if (!enabled) {
+      this.contextCompressionService = null;
+      return undefined;
+    }
+
+    const { ContextCompressionService } = await import(
+      '../services/contextCompressionService.js'
+    );
+    this.contextCompressionService = new ContextCompressionService(this);
+    await this.contextCompressionService.loadState();
+    return this.contextCompressionService;
+  }
+
   getIdeMode(): boolean {
     return this.ideMode;
   }
@@ -2446,6 +2519,10 @@ export class Config implements McpContext {
    */
   setFileSystemService(fileSystemService: FileSystemService): void {
     this.fileSystemService = fileSystemService;
+  }
+
+  getContextCompressionTokenThreshold(): number {
+    return this.contextCompressionTokenThreshold ?? 0.1;
   }
 
   async getCompressionThreshold(): Promise<number | undefined> {

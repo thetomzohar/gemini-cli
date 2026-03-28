@@ -277,6 +277,17 @@ describe('Gemini Client (client.ts)', () => {
         .mockReturnValue(createAvailabilityServiceMock()),
     } as unknown as Config;
     mockConfig.getHookSystem = vi.fn().mockReturnValue(mockHookSystem);
+    mockConfig.setCurrentPrompt = vi.fn();
+    mockConfig.getCurrentPrompt = vi.fn().mockReturnValue('mock prompt');
+    mockConfig.getContextCompressionService = vi.fn().mockResolvedValue(null);
+    mockConfig.isContextCompressionEnabled = vi.fn().mockReturnValue(false);
+    mockConfig.getLocalContextCompressionModelUrl = vi
+      .fn()
+      .mockResolvedValue('');
+    mockConfig.getLocalContextCompressionModelName = vi
+      .fn()
+      .mockResolvedValue('');
+    mockConfig.getCompressionMode = vi.fn().mockReturnValue('none');
 
     client = new GeminiClient(mockConfig);
     await client.initialize();
