@@ -20,6 +20,8 @@ export interface FileRecord {
   level: FileLevel;
   cachedSummary?: string;
   contentHash?: string;
+  startLine?: number;
+  endLine?: number;
 }
 
 export class ContextCompressionService {
@@ -115,7 +117,117 @@ export class ContextCompressionService {
       }
     }
 
-    // Pass 2: Compress old turns
+    // Pass 2: Collect files needing routing decisions
+    type PendingFile = {
+      filepath: string;
+      rawContent: string;
+      contentToProcess: string;
+      lines: string[];
+      preview: string;
+      lineCount: number;
+    };
+    const pendingFiles: PendingFile[] = [];
+    const pendingFilesSet = new Set<string>(); // deduplicate by filepath
+
+    for (let i = 0; i < history.length; i++) {
+      const turn = history[i];
+      if (i >= cutoff || turn.role !== 'user' || !turn.parts) continue;
+
+      for (const part of turn.parts) {
+        const resp = part.functionResponse;
+        if (!resp) continue;
+        if (resp.name !== 'read_file' && resp.name !== 'read_many_files')
+          continue;
+
+        const output = resp.response?.['output'] as string;
+        if (!output || typeof output !== 'string') continue;
+
+        const match = output.match(/--- (.+?) ---\n/);
+        let filepath = '';
+        if (match) {
+          filepath = match[1];
+        } else {
+          const lines = output.split('\n');
+          if (lines[0] && lines[0].includes('---')) {
+            filepath = lines[0].replace(/---/g, '').trim();
+          }
+        }
+
+        if (!filepath || protectedFiles.has(filepath)) continue;
+
+        const hash = crypto
+          .createHash('sha256')
+          .update(output)
+          .digest('hex')
+          .slice(0, 12);
+        const existing = this.state.get(filepath);
+        if (
+          existing?.level === 'SUMMARY' &&
+          existing.cachedSummary &&
+          existing.contentHash === hash
+        ) {
+          continue; // Cache hit — skip routing for this file
+        }
+
+        if (pendingFilesSet.has(filepath)) continue; // already queued
+        pendingFilesSet.add(filepath);
+
+        let contentToProcess = output;
+        if (contentToProcess.startsWith('--- ')) {
+          const firstNewline = contentToProcess.indexOf('\n');
+          if (firstNewline !== -1) {
+            contentToProcess = contentToProcess.substring(firstNewline + 1);
+          }
+        }
+        const lines = contentToProcess.split('\n');
+
+        pendingFiles.push({
+          filepath,
+          rawContent: output,
+          contentToProcess,
+          lines,
+          preview: lines.slice(0, 30).join('\n'),
+          lineCount: lines.length,
+        });
+      }
+    }
+
+    // Pass 3: Single batched routing call for all pending files
+    const routingDecisions = await this.batchQueryModel(
+      pendingFiles.map((f) => ({
+        filepath: f.filepath,
+        lineCount: f.lineCount,
+        preview: f.preview,
+      })),
+      userPrompt,
+      abortSignal,
+    );
+
+    // Update state and save once for all files
+    for (const f of pendingFiles) {
+      const decision = routingDecisions.get(f.filepath) ?? {
+        level: 'FULL' as FileLevel,
+      };
+      const record = this.state.get(f.filepath) ?? {
+        level: 'FULL' as FileLevel,
+      };
+      const hash = crypto
+        .createHash('sha256')
+        .update(f.rawContent)
+        .digest('hex')
+        .slice(0, 12);
+      if (record.contentHash && record.contentHash !== hash) {
+        record.cachedSummary = undefined;
+      }
+      record.contentHash = hash;
+      record.level = decision.level;
+      record.startLine = decision.startLine;
+      record.endLine = decision.endLine;
+      this.state.set(f.filepath, record);
+    }
+    await this.saveState();
+
+    // Pass 4: Apply decisions — now applyCompressionDecision reads from state, no model calls
     const result: Content[] = [];
     for (let i = 0; i < history.length; i++) {
       const turn = history[i];
@@ -126,7 +238,12 @@ export class ContextCompressionService {
 
       const newParts = await Promise.all(
         turn.parts.map((part: Part) =>
-          this.maybeCompressPart(part, protectedFiles, userPrompt, abortSignal),
+          this.applyCompressionDecision(
+            part,
+            protectedFiles,
+            userPrompt,
+            abortSignal,
+          ),
         ),
       );
       result.push({ ...turn, parts: newParts });
@@ -188,7 +305,7 @@ export class ContextCompressionService {
     return result;
   }
 
-  private async maybeCompressPart(
+  private async applyCompressionDecision(
     part: any,
     protectedFiles: Set<string>,
     userPrompt: string,
@@ -202,68 +319,25 @@ export class ContextCompressionService {
     const output = resp.response?.output as string;
     if (!output || typeof output !== 'string') return part;
 
-    // Extract filepath from output format
     const match = output.match(/--- (.+?) ---\n/);
     let filepath = '';
-
     if (match) {
       filepath = match[1];
     } else {
-      // Try another common format or fallback.
-      // Note: For read_many_files, the output concatenates multiple files.
-      // Currently, we just parse the very first file from the output. True multi-file
-      // compression for read_many_files is a known limitation.
       const lines = output.split('\n');
       if (lines[0] && lines[0].includes('---')) {
         filepath = lines[0].replace(/---/g, '').trim();
       } else {
-        return part; // Can't reliably parse
+        return part;
       }
     }
 
-    if (protectedFiles.has(filepath)) {
-      return part; // Skip compression for protected files
-    }
+    if (protectedFiles.has(filepath)) return part;
 
-    const compressed = await this.compressFileContent(
-      filepath,
-      output,
-      userPrompt,
-      abortSignal,
-    );
-    if (compressed === output) return part; // nothing changed
+    const record = this.state.get(filepath);
+    if (!record || record.level === 'FULL') return part;
 
-    return {
-      functionResponse: {
-        ...resp,
-        response: { ...resp.response, output: compressed },
-      },
-    };
-  }
-
-  async compressFileContent(
-    filepath: string,
-    rawContent: string,
-    userPrompt: string,
-    abortSignal?: AbortSignal,
-  ): Promise<string> {
-    const hash = crypto
-      .createHash('sha256')
-      .update(rawContent)
-      .digest('hex')
-      .slice(0, 12);
-    const record: FileRecord = this.state.get(filepath) ?? {
-      level: 'FULL',
-    };
-
-    // Invalidate cached summary if file changed
-    if (record.contentHash && record.contentHash !== hash) {
-      record.cachedSummary = undefined;
-    }
-    record.contentHash = hash;
-
-    // Strip standard headers from tool outputs so line numbers align correctly
-    let contentToProcess = rawContent;
+    let contentToProcess = output;
     if (contentToProcess.startsWith('--- ')) {
       const firstNewline = contentToProcess.indexOf('\n');
       if (firstNewline !== -1) {
@@ -271,41 +345,20 @@ export class ContextCompressionService {
       }
     }
     const lines = contentToProcess.split('\n');
-    const preview = lines.slice(0, 30).join('\n');
 
-    const decision = await this.queryLocalModel(
-      filepath,
-      lines.length,
-      preview,
-      userPrompt,
-      abortSignal,
-    );
-    record.level = decision.level;
-    this.state.set(filepath, record);
-    await this.saveState();
+    let compressed: string;
 
-    if (decision.level === 'FULL') {
-      return rawContent;
-    }
-
-    if (
-      decision.level === 'PARTIAL' &&
-      decision.startLine &&
-      decision.endLine
-    ) {
-      const start = Math.max(0, decision.startLine - 1);
-      const end = Math.min(lines.length, decision.endLine);
+    if (record.level === 'PARTIAL' && record.startLine && record.endLine) {
+      const start = Math.max(0, record.startLine - 1);
+      const end = Math.min(lines.length, record.endLine);
       const snippet = lines
         .slice(start, end)
         .map((l, i) => `${start + i + 1} | ${l}`)
         .join('\n');
-      return (
-        `[Showing lines ${decision.startLine}–${decision.endLine} of ${lines.length} ` +
-        `in ${path.basename(filepath)}. Full file available via read_file.]\n\n${snippet}`
-      );
-    }
-
-    if (decision.level === 'SUMMARY') {
+      compressed =
+        `[Showing lines ${record.startLine}–${record.endLine} of ${lines.length} ` +
+        `in ${path.basename(filepath)}. Full file available via read_file.]\n\n${snippet}`;
+    } else if (record.level === 'SUMMARY') {
       if (!record.cachedSummary) {
         record.cachedSummary = await this.generateSummary(
           filepath,
@@ -315,83 +368,122 @@ export class ContextCompressionService {
         this.state.set(filepath, record);
         await this.saveState();
       }
-      return (
+      compressed =
         `[Summary of ${path.basename(filepath)} (${lines.length} lines). ` +
-        `Full file available via read_file.]\n\n${record.cachedSummary}`
-      );
+        `Full file available via read_file.]\n\n${record.cachedSummary}`;
+    } else if (record.level === 'EXCLUDED') {
+      compressed =
+        `[${path.basename(filepath)} omitted as not relevant to current query. ` +
+        `Request via read_file if needed.]`;
+    } else {
+      return part;
     }
 
-    // EXCLUDED — return a one-liner stub
-    return (
-      `[${path.basename(filepath)} omitted as not relevant to current query. ` +
-      `Request via read_file if needed.]`
-    );
+    if (compressed === output) return part;
+
+    return {
+      functionResponse: {
+        ...resp,
+        response: { ...resp.response, output: compressed },
+      },
+    };
   }
 
   getFileState(filepath: string): FileRecord | undefined {
     return this.state.get(filepath);
   }
 
-  private async queryLocalModel(
-    filepath: string,
-    lineCount: number,
-    preview: string,
+  private async batchQueryModel(
+    files: Array<{ filepath: string; lineCount: number; preview: string }>,
     userPrompt: string,
     abortSignal?: AbortSignal,
-  ): Promise<{ level: FileLevel; startLine?: number; endLine?: number }> {
+  ): Promise<
+    Map<string, { level: FileLevel; startLine?: number; endLine?: number }>
+  > {
+    const results = new Map<
+      string,
+      { level: FileLevel; startLine?: number; endLine?: number }
+    >();
+
+    // Default all to FULL so any failure is safe
+    for (const f of files) {
+      results.set(f.filepath, { level: 'FULL' });
+    }
+
+    if (files.length === 0) return results;
+
     const systemPrompt = `You are a context routing agent for a coding AI session.
-Decide what level of file content to send to the main model.
+For each file listed, decide what level of content to send to the main model.
 Levels: FULL, PARTIAL (with line range), SUMMARY, EXCLUDED.
 Rules:
 - FULL if the file is directly relevant to the query or small (<80 lines)
 - PARTIAL if only a specific section is needed — provide start_line and end_line
 - SUMMARY for background context files not directly needed
 - EXCLUDED for completely unrelated files
-Respond ONLY with JSON: {"level":"FULL"|"PARTIAL"|"SUMMARY"|"EXCLUDED","start_line":null,"end_line":null}`;
+Respond ONLY with a JSON object where each key is the filepath and the value is:
+{"level":"FULL"|"PARTIAL"|"SUMMARY"|"EXCLUDED","start_line":null,"end_line":null}`;
 
-    const userMessage = `Query: "${userPrompt}"
-File: ${filepath} (${lineCount} lines)
-Preview (first 30 lines):
-${preview}`;
+    const fileList = files
+      .map(
+        (f) =>
+          `File: ${f.filepath} (${f.lineCount} lines)\nPreview:\n${f.preview}`,
+      )
+      .join('\n\n---\n\n');
+
+    const userMessage = `Query: "${userPrompt}"\n\n${fileList}`;
 
     if (this.config.getCompressionMode() === 'cloud') {
       const client = this.config.getBaseLlmClient();
       try {
-        const responseJson = await client.generateJson({
-          modelConfigKey: { model: 'chat-compression-2.5-flash-lite' },
-          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-          systemInstruction: systemPrompt,
-          schema: {
+        // Build per-file schema properties dynamically
+        const properties: Record<string, object> = {};
+        for (const f of files) {
+          properties[f.filepath] = {
+            type: 'OBJECT',
             properties: {
               level: { type: 'STRING' },
               start_line: { type: 'INTEGER' },
               end_line: { type: 'INTEGER' },
             },
             required: ['level'],
-          },
-          promptId: 'local-context-compression-query',
+          };
+        }
+
+        const responseJson = await client.generateJson({
+          modelConfigKey: { model: 'chat-compression-2.5-flash-lite' },
+          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+          systemInstruction: systemPrompt,
+          schema: { properties, required: files.map((f) => f.filepath) },
+          promptId: 'context-compression-batch-query',
           role: LlmRole.UTILITY_COMPRESSOR,
           abortSignal: abortSignal ?? new AbortController().signal,
         });
-        return {
-          level: (responseJson['level'] as any) || 'FULL',
-          startLine: (responseJson['start_line'] as number) || undefined,
-          endLine: (responseJson['end_line'] as number) || undefined,
-        };
+
+        for (const f of files) {
+          const decision = responseJson[f.filepath] as any;
+          if (decision?.level) {
+            results.set(f.filepath, {
+              level: decision.level ?? 'FULL',
+              startLine: decision.start_line ?? undefined,
+              endLine: decision.end_line ?? undefined,
+            });
+          }
+        }
       } catch (e) {
         debugLogger.warn(
-          `Cloud model context routing failed for ${filepath}: ${e}. Defaulting to FULL.`,
+          `Batch cloud routing failed: ${e}. Defaulting all to FULL.`,
         );
-        return { level: 'FULL' };
       }
+      return results;
     }
 
+    // Local path
     const modelUrl = await this.config.getLocalContextCompressionModelUrl();
     const modelName = await this.config.getLocalContextCompressionModelName();
-
     try {
       const fetchFn = (globalThis as any).fetch;
-      if (!fetchFn) return { level: 'FULL' };
+      if (!fetchFn) return results;
+
       const resp = await fetchFn(modelUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -409,17 +501,23 @@ ${preview}`;
       const data = await resp.json();
       const raw = data.choices[0].message.content;
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      return {
-        level: parsed.level ?? 'FULL',
-        startLine: parsed.start_line ?? undefined,
-        endLine: parsed.end_line ?? undefined,
-      };
+
+      for (const f of files) {
+        const decision = parsed[f.filepath];
+        if (decision?.level) {
+          results.set(f.filepath, {
+            level: decision.level ?? 'FULL',
+            startLine: decision.start_line ?? undefined,
+            endLine: decision.end_line ?? undefined,
+          });
+        }
+      }
     } catch (e) {
       debugLogger.warn(
-        `Local model routing failed for ${filepath}: ${e}. Defaulting to FULL.`,
+        `Batch local routing failed: ${e}. Defaulting all to FULL.`,
       );
-      return { level: 'FULL' };
     }
+    return results;
   }
 
   private async generateSummary(

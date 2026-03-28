@@ -596,12 +596,17 @@ export class GeminiClient {
 
     const compressionService = await this.config.getContextCompressionService();
     if (compressionService) {
-      const compressedHistory = await compressionService.compressHistory(
-        this.getHistory(),
-        this.config.getCurrentPrompt(),
-        signal,
-      );
-      this.setHistory(compressedHistory);
+      const lastTurn = this.getHistory().at(-1);
+      const historyIsStable = !lastTurn?.parts?.some((p) => p.functionCall);
+
+      if (historyIsStable) {
+        const compressedHistory = await compressionService.compressHistory(
+          this.getHistory(),
+          this.config.getCurrentPrompt(),
+          signal,
+        );
+        this.setHistory(compressedHistory);
+      }
     }
 
     const remainingTokenCount =

@@ -186,9 +186,11 @@ describe('ContextCompressionService', () => {
             {
               message: {
                 content: JSON.stringify({
-                  level: 'PARTIAL',
-                  start_line: 2,
-                  end_line: 3,
+                  'src/old.ts': {
+                    level: 'PARTIAL',
+                    start_line: 2,
+                    end_line: 3,
+                  },
                 }),
               },
             },
@@ -244,7 +246,13 @@ describe('ContextCompressionService', () => {
         ok: true,
         json: async () => ({
           choices: [
-            { message: { content: JSON.stringify({ level: 'SUMMARY' }) } },
+            {
+              message: {
+                content: JSON.stringify({
+                  'src/index.ts': { level: 'SUMMARY' },
+                }),
+              },
+            },
           ],
         }),
       });
@@ -271,15 +279,21 @@ describe('ContextCompressionService', () => {
         ok: true,
         json: async () => ({
           choices: [
-            { message: { content: JSON.stringify({ level: 'SUMMARY' }) } },
+            {
+              message: {
+                content: JSON.stringify({
+                  'src/index.ts': { level: 'SUMMARY' },
+                }),
+              },
+            },
           ],
         }),
       });
 
       const res = await service.compressHistory(history2, 'new query');
 
-      // It should NOT make a 4th fetch call for the summary text, since contentHash matches.
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      // It should NOT make a 3rd fetch call for routing, since content has not changed and state is cached.
+      expect(mockFetch).toHaveBeenCalledTimes(2);
 
       const compressedOutput =
         res[1].parts![0].functionResponse!.response!['output'];

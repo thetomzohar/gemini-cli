@@ -82,6 +82,7 @@ describe('chatCommand', () => {
           getContentGeneratorConfig: () => ({
             authType: AuthType.LOGIN_WITH_GOOGLE,
           }),
+          getContextCompressionService: () => Promise.resolve(null),
         },
         logger: {
           saveCheckpoint: mockSaveCheckpoint,
